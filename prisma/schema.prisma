@@ -1,0 +1,37 @@
+// BuilderAI Connect — database schema (Prisma ORM 7 + PostgreSQL)
+//
+// This is a SEPARATE service from BuilderAI (Sujon's direction 2026-11-26:
+// the connection engine gets its own website/codebase that he can manage
+// himself, like his own small Nango; BuilderAI talks to it over an API).
+//
+// One model only in this slice: a Connection is one external account
+// (e.g. a user's Google account) linked for one BuilderAI user
+// (`externalUserId` is the BuilderAI user id — this service has no users
+// of its own). OAuth tokens live AES-256-GCM encrypted in `data`.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Connection {
+  id             String   @id @default(cuid())
+  /// Provider id from the registry in src/lib/providers.ts ("google", …).
+  provider       String
+  /// The BuilderAI user this connection belongs to.
+  externalUserId String
+  /// The connected account's email address, when known (display only).
+  accountEmail   String?
+  /// Encrypted JSON: OAuth2 providers store
+  /// { accessToken, refreshToken, expiresAt, scope };
+  /// API_KEY providers store { apiKey }.
+  data           String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([provider, externalUserId])
+}
