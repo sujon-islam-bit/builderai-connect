@@ -35,3 +35,14 @@ model Connection {
 
   @@index([provider, externalUserId])
 }
+
+/// Tiny key-value store for service-level settings. First use: the
+/// first-run owner setup saves `owner_email` + `owner_password_hash`
+/// here when the owner picks a password on the /login setup page
+/// instead of via env (see src/lib/auth.ts). Values are whatever the
+/// writer stored — the password entry is a bcrypt hash, never plain.
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

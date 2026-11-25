@@ -107,11 +107,24 @@ drawer from the left. Desktop keeps the inline header links.
 
 ## Owner login
 
-The dashboard is locked behind a single owner account that lives in
-env, not the database:
+The dashboard is locked behind a single owner account. The owner
+credentials are resolved in this order (see `src/lib/auth.ts`):
 
-- `OWNER_EMAIL` + `OWNER_PASSWORD_HASH` — a **bcrypt hash** (bcryptjs),
-  never the plain password, which is never stored or logged anywhere.
+1. **Env** — `OWNER_EMAIL` + `OWNER_PASSWORD_HASH` (a **bcrypt hash**,
+   never the plain password). When both are set they always win.
+2. **Database** — the `owner_email` + `owner_password_hash` rows in
+   the `Setting` table, written by the first-run setup page.
+
+**The normal way to set the owner password is the setup page.** While
+no owner is configured anywhere, `/login` shows a one-time setup form
+("Set your owner password": email + password + confirm, minimum 10
+characters). Saving it stores the email and a bcrypt hash (cost 10)
+in the `Setting` table and signs the owner straight in; the form then
+disappears forever. `POST /api/auth/setup` re-checks the configuration
+server-side and refuses with **409** once an owner exists, so the
+setup can never be replayed or overwritten — and it stays refused
+even if only env configures the owner.
+
 - On sign-in the server sets a signed session cookie
   (`connect_owner_session`, HMAC-SHA256 over `{ email, expiry }`,
   httpOnly, SameSite=Lax, 7 days). The signing key is `SESSION_SECRET`,
@@ -121,25 +134,29 @@ env, not the database:
   `/connect/*`, `/oauth/callback`, `/api/proxy` (which keeps its own
   `x-connect-key` check). The dashboard pages also re-check the session
   server-side as defense in depth.
-- If `OWNER_EMAIL` / `OWNER_PASSWORD_HASH` are unset, `/login` shows an
-  honest "Owner login is not configured yet" state and the dashboard
-  stays locked — there is no open-access fallback.
+- If no owner is configured anywhere, `/login` shows the setup form
+  and the dashboard stays locked — there is no open-access fallback.
 - Sessions are stateless: Log out clears the cookie; an already-issued
   cookie stays cryptographically valid until its 7-day expiry.
 
-**Setting a real owner password later:** generate the hash and put the
-output in `OWNER_PASSWORD_HASH`:
+**Env override (optional):** to configure the owner from env instead,
+generate the hash and put the output in `OWNER_PASSWORD_HASH`:
 
 ```
 node -e "console.log(require('bcryptjs').hashSync('your-password', 12).replace(/\$/g, '\\$'))"
 ```
 
-The `.replace(...)` step is **not optional**: Next.js expands `$...`
-sequences in `.env` values, which silently corrupts a raw bcrypt hash
-(it is full of `$` characters) — with a raw hash the correct password
-will never match. This was found and verified the hard way in slice 2:
-@next/env parsed a 60-char hash down to 45 chars until it was stored
-`\$`-escaped.
+The `.replace(...)` step is **not optional** for values stored in a
+`.env` **file**: Next.js expands `$...` sequences in `.env` values,
+which silently corrupts a raw bcrypt hash (it is full of `$`
+characters) — with a raw hash the correct password will never match.
+This was found and verified the hard way in slice 2: @next/env parsed
+a 60-char hash down to 45 chars until it was stored `\$`-escaped.
+Verified again with the setup page: @next/env's expand step even
+re-interpolates a hash supplied via the real process environment when
+a `.env` file defines the same key, and writes the mangled value back
+— on Vercel there is no `.env` file, so platform env values are used
+exactly as entered there.
 
 ## Run it locally
 

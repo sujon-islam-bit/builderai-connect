@@ -3,12 +3,15 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import LoginForm from "@/components/login-form";
+import SetupForm from "@/components/setup-form";
 import { getOwnerSession, ownerLoginConfigured } from "@/lib/auth";
 
 async function LoginContent() {
   await connection();
   const session = await getOwnerSession();
   if (session) redirect("/");
+
+  const configured = await ownerLoginConfigured();
 
   return (
     <div className="mx-auto max-w-md pt-6 sm:pt-12">
@@ -19,22 +22,26 @@ async function LoginContent() {
             <path d="M8 10V7a4 4 0 0 1 8 0v3" />
           </svg>
         </span>
-        <h1 className="mt-4 text-2xl font-bold tracking-tight">Owner sign in</h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">Only the owner can open this dashboard.</p>
-
-        <div className="mt-6">
-          {ownerLoginConfigured() ? (
-            <LoginForm />
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3.5">
-              <p className="text-sm font-semibold text-amber-900">Owner login is not configured yet</p>
-              <p className="mt-1 text-sm leading-relaxed text-amber-800">
-                The dashboard stays locked until the owner email and password hash are set in this service&apos;s
-                environment (OWNER_EMAIL and OWNER_PASSWORD_HASH). There is no open-access fallback.
-              </p>
+        {configured ? (
+          <>
+            <h1 className="mt-4 text-2xl font-bold tracking-tight">Owner sign in</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">Only the owner can open this dashboard.</p>
+            <div className="mt-6">
+              <LoginForm />
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            <h1 className="mt-4 text-2xl font-bold tracking-tight">Set your owner password</h1>
+            <p className="mt-1.5 text-sm leading-relaxed text-neutral-500">
+              This dashboard is yours alone. Choose the email and password you will sign in with — this setup page
+              disappears forever once saved.
+            </p>
+            <div className="mt-6">
+              <SetupForm />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
