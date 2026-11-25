@@ -177,7 +177,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   target.searchParams.set("provider", provider.id);
   target.searchParams.set("connection", connection.id);
 
-  const response = NextResponse.redirect(target);
+  // 303 (not the 307 default): after a POST the browser must follow with a
+  // GET — a 307 would re-POST to the return page and fail with 405.
+  const response = NextResponse.redirect(target, 303);
   response.cookies.set(NONCE_COOKIE, "", { httpOnly: true, path: "/", maxAge: 0 });
   return response;
 }
